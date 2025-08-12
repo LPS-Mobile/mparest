@@ -542,4 +542,4 @@ export default function ConfirmEmailPage() {
       `}</style>
     </div>
   );
-}
+} 
