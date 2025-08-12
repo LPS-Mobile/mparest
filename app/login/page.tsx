@@ -1,10 +1,12 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [resetEmail, setResetEmail] = useState('');
@@ -13,14 +15,80 @@ export default function LoginPage() {
   const [showResetForm, setShowResetForm] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
+  // Check for confirmation success message
+  useEffect(() => {
+    if (searchParams.get('confirmed') === 'true') {
+      setMessage({
+        text: 'Email confirmed successfully! You can now sign in with your credentials.',
+        type: 'success'
+      });
+    }
+    
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        router.push('/success'); // Redirect to success page instead of dashboard
+      }
+    };
+    
+    checkUser();
+  }, [searchParams, router]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setMessage(null);
     
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (error) {
+        // Handle specific auth errors
+        if (error.message.includes('Invalid login credentials')) {
+          setMessage({
+            text: 'Invalid email or password. Please check your credentials and try again.',
+            type: 'error'
+          });
+        } else if (error.message.includes('Email not confirmed')) {
+          setMessage({
+            text: 'Please check your email and click the confirmation link before signing in.',
+            type: 'error'
+          });
+        } else if (error.message.includes('Too many requests')) {
+          setMessage({
+            text: 'Too many login attempts. Please wait a few minutes and try again.',
+            type: 'error'
+          });
+        } else {
+          setMessage({
+            text: error.message,
+            type: 'error'
+          });
+        }
+      } else {
+        // Success - redirect to dashboard
+        setMessage({
+          text: 'Login successful! Redirecting...',
+          type: 'success'
+        });
+        
+        // Small delay to show success message
+        setTimeout(() => {
+          router.push('/success'); // Redirect to success page
+        }, 1000);
+      }
+    } catch (error) {
+      setMessage({
+        text: 'An unexpected error occurred. Please try again.',
+        type: 'error'
+      });
+    } finally {
       setLoading(false);
-      alert('Demo login - use "Forgot Password?" to test reset flow');
-    }, 1000);
+    }
   };
 
   const handlePasswordReset = async (e: React.FormEvent) => {
@@ -33,14 +101,31 @@ export default function LoginPage() {
     setResetLoading(true);
     setMessage(null);
     
-    setTimeout(() => {
-      setResetLoading(false);
-      setMessage({ 
-        text: 'Password reset link sent! Check your email and click the link to reset your password.', 
-        type: 'success' 
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
-      setResetEmail('');
-    }, 1500);
+
+      if (error) {
+        setMessage({
+          text: `Failed to send reset email: ${error.message}`,
+          type: 'error'
+        });
+      } else {
+        setMessage({ 
+          text: 'Password reset link sent! Check your email and click the link to reset your password.', 
+          type: 'success' 
+        });
+        setResetEmail('');
+      }
+    } catch (error) {
+      setMessage({
+        text: 'An unexpected error occurred. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   // Password Reset Form
@@ -156,7 +241,7 @@ export default function LoginPage() {
                     fontSize: '0.875rem',
                     outline: 'none'
                   }}
-                  onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                  onFocus={(e) => e.target.style.borderColor = '#d3b65d'}
                   onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                 />
               </div>
@@ -167,7 +252,7 @@ export default function LoginPage() {
                 style={{
                   width: '100%',
                   padding: '0.5rem 1rem',
-                  backgroundColor: resetLoading ? '#9ca3af' : '#2563eb',
+                  backgroundColor: resetLoading ? '#9ca3af' : '#d3b65d',
                   color: 'white',
                   border: 'none',
                   borderRadius: '0.375rem',
@@ -180,10 +265,10 @@ export default function LoginPage() {
                   gap: '0.5rem'
                 }}
                 onMouseEnter={(e) => {
-                  if (!resetLoading) e.currentTarget.style.backgroundColor = '#1d4ed8';
+                  if (!resetLoading) e.currentTarget.style.backgroundColor = '#b8a04a';
                 }}
                 onMouseLeave={(e) => {
-                  if (!resetLoading) e.currentTarget.style.backgroundColor = '#2563eb';
+                  if (!resetLoading) e.currentTarget.style.backgroundColor = '#d3b65d';
                 }}
               >
                 {resetLoading && (
@@ -204,7 +289,7 @@ export default function LoginPage() {
                     setResetEmail('');
                   }}
                   style={{
-                    color: '#2563eb',
+                    color: '#d3b65d',
                     fontSize: '0.875rem',
                     fontWeight: '500',
                     background: 'none',
@@ -251,16 +336,22 @@ export default function LoginPage() {
           <div style={{
             width: '3rem',
             height: '3rem',
-            backgroundColor: '#2563eb',
+            backgroundColor: '#d3b65d',
             borderRadius: '0.5rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 1.5rem'
           }}>
-            <svg style={{ width: '1.5rem', height: '1.5rem', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+            <img 
+              src="/myprayerlogo.png" 
+              alt="Logo" 
+              style={{ 
+                width: '2rem', 
+                height: '2rem',
+                objectFit: 'contain'
+              }} 
+            />
           </div>
           <h2 style={{
             fontSize: '1.875rem',
@@ -274,7 +365,7 @@ export default function LoginPage() {
             fontSize: '0.875rem',
             color: '#6b7280'
           }}>
-            This is a demo login page
+            Welcome back! Please sign in to continue.
           </p>
         </div>
 
@@ -285,6 +376,38 @@ export default function LoginPage() {
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
         }}>
+          {/* Message */}
+          {message && (
+            <div style={{
+              padding: '1rem',
+              borderRadius: '0.375rem',
+              marginBottom: '1.5rem',
+              backgroundColor: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+              border: `1px solid ${message.type === 'success' ? '#bbf7d0' : '#fecaca'}`
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                <div style={{ flexShrink: 0, marginRight: '0.75rem' }}>
+                  {message.type === 'success' ? (
+                    <svg style={{ width: '1.25rem', height: '1.25rem', color: '#22c55e' }} fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg style={{ width: '1.25rem', height: '1.25rem', color: '#ef4444' }} fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <p style={{
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  color: message.type === 'success' ? '#166534' : '#991b1b'
+                }}>
+                  {message.text}
+                </p>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleLogin}>
             {/* Email Field */}
             <div style={{ marginBottom: '1.5rem' }}>
@@ -302,7 +425,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email address"
+                placeholder="Enter your email address"
                 style={{
                   width: '100%',
                   padding: '0.5rem 0.75rem',
@@ -311,7 +434,7 @@ export default function LoginPage() {
                   fontSize: '0.875rem',
                   outline: 'none'
                 }}
-                onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                onFocus={(e) => e.target.style.borderColor = '#d3b65d'}
                 onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
               />
             </div>
@@ -332,7 +455,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder="Enter your password"
                 style={{
                   width: '100%',
                   padding: '0.5rem 0.75rem',
@@ -341,7 +464,7 @@ export default function LoginPage() {
                   fontSize: '0.875rem',
                   outline: 'none'
                 }}
-                onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                onFocus={(e) => e.target.style.borderColor = '#d3b65d'}
                 onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
               />
             </div>
@@ -361,7 +484,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setShowResetForm(true)}
                 style={{
-                  color: '#2563eb',
+                  color: '#d3b65d',
                   fontSize: '0.875rem',
                   fontWeight: '500',
                   background: 'none',
@@ -381,7 +504,7 @@ export default function LoginPage() {
               style={{
                 width: '100%',
                 padding: '0.5rem 1rem',
-                backgroundColor: loading ? '#9ca3af' : '#2563eb',
+                backgroundColor: loading ? '#9ca3af' : '#d3b65d',
                 color: 'white',
                 border: 'none',
                 borderRadius: '0.375rem',
@@ -395,10 +518,10 @@ export default function LoginPage() {
                 marginBottom: '1.5rem'
               }}
               onMouseEnter={(e) => {
-                if (!loading) e.currentTarget.style.backgroundColor = '#1d4ed8';
+                if (!loading) e.currentTarget.style.backgroundColor = '#b8a04a';
               }}
               onMouseLeave={(e) => {
-                if (!loading) e.currentTarget.style.backgroundColor = '#2563eb';
+                if (!loading) e.currentTarget.style.backgroundColor = '#d3b65d';
               }}
             >
               {loading && (
@@ -420,26 +543,48 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Direct Reset Link */}
-            <button
-              type="button"
-              onClick={() => router.push('/reset-password')}
-              style={{
-                width: '100%',
-                padding: '0.5rem 1rem',
-                backgroundColor: 'white',
-                color: '#6b7280',
-                border: '1px solid #d1d5db',
-                borderRadius: '0.375rem',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: 'pointer'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-            >
-              Go directly to password reset page →
-            </button>
+            {/* Additional Options */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => router.push('/reset-password')}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: 'white',
+                  color: '#6b7280',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+              >
+                Go to password reset page →
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push('/signup')}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#f3f4f6',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+              >
+                Don't have an account? Sign up
+              </button>
+            </div>
           </form>
         </div>
       </div>

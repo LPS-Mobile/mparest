@@ -155,6 +155,11 @@ export default function ResetPasswordPage() {
         // Clear the form
         setPassword('');
         setConfirmPassword('');
+        
+        // Redirect to login after a delay
+        setTimeout(() => {
+          router.push('/login?reset=success');
+        }, 2000);
       }
     } catch (error) {
       setMessage({
@@ -188,19 +193,22 @@ export default function ResetPasswordPage() {
           width: '100%'
         }}>
           <div style={{
-            width: '4rem',
-            height: '4rem',
-            backgroundColor: '#3b82f6',
-            borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 1.5rem'
           }}>
-            <svg style={{ width: '2rem', height: '2rem', color: 'white', animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24">
-              <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+            <img 
+              src="/myprayerlogo.png" 
+              alt="Logo" 
+              style={{ 
+                width: 'auto', 
+                height: 'auto',
+                maxWidth: '5rem',
+                maxHeight: '5rem',
+                objectFit: 'contain'
+              }} 
+            />
           </div>
           <h2 style={{
             fontSize: '1.5rem',
@@ -245,18 +253,22 @@ export default function ResetPasswordPage() {
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{
-            width: '4rem',
-            height: '4rem',
-            backgroundColor: '#3b82f6',
-            borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 1.5rem'
           }}>
-            <svg style={{ width: '2rem', height: '2rem', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+            <img 
+              src="/myprayerlogo.png" 
+              alt="Logo" 
+              style={{ 
+                width: 'auto', 
+                height: 'auto',
+                maxWidth: '5rem',
+                maxHeight: '5rem',
+                objectFit: 'contain'
+              }} 
+            />
           </div>
           <h1 style={{
             fontSize: '2rem',
@@ -340,6 +352,8 @@ export default function ResetPasswordPage() {
                     fontSize: '1rem',
                     outline: 'none'
                   }}
+                  onFocus={(e) => e.target.style.borderColor = '#d3b65d'}
+                  onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
                   placeholder="Enter the email you used to request password reset"
                   required
                 />
@@ -351,7 +365,7 @@ export default function ResetPasswordPage() {
                 style={{
                   width: '100%',
                   padding: '0.875rem 1rem',
-                  backgroundColor: verifying ? '#9ca3af' : '#3b82f6',
+                  backgroundColor: verifying ? '#9ca3af' : '#d3b65d',
                   color: 'white',
                   border: 'none',
                   borderRadius: '0.5rem',
@@ -362,6 +376,12 @@ export default function ResetPasswordPage() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '0.5rem'
+                }}
+                onMouseEnter={(e) => {
+                  if (!verifying) e.currentTarget.style.backgroundColor = '#b8a04a';
+                }}
+                onMouseLeave={(e) => {
+                  if (!verifying) e.currentTarget.style.backgroundColor = '#d3b65d';
                 }}
               >
                 {verifying && (
@@ -407,6 +427,20 @@ export default function ResetPasswordPage() {
                     fontSize: '1rem',
                     outline: 'none',
                     backgroundColor: password && isPasswordValid(password) ? '#f0fdf4' : password && !isPasswordValid(password) ? '#fef2f2' : '#f9fafb'
+                  }}
+                  onFocus={(e) => {
+                    if (!password || (!isPasswordValid(password) && password)) {
+                      e.target.style.borderColor = '#d3b65d';
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (password && isPasswordValid(password)) {
+                      e.target.style.borderColor = '#10b981';
+                    } else if (password && !isPasswordValid(password)) {
+                      e.target.style.borderColor = '#ef4444';
+                    } else {
+                      e.target.style.borderColor = '#d1d5db';
+                    }
                   }}
                   placeholder="Enter your new password"
                   required
@@ -463,6 +497,20 @@ export default function ResetPasswordPage() {
                     outline: 'none',
                     backgroundColor: confirmPassword && confirmPassword === password ? '#f0fdf4' : confirmPassword && confirmPassword !== password ? '#fef2f2' : '#f9fafb'
                   }}
+                  onFocus={(e) => {
+                    if (!confirmPassword || (confirmPassword && confirmPassword !== password)) {
+                      e.target.style.borderColor = '#d3b65d';
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (confirmPassword && confirmPassword === password) {
+                      e.target.style.borderColor = '#10b981';
+                    } else if (confirmPassword && confirmPassword !== password) {
+                      e.target.style.borderColor = '#ef4444';
+                    } else {
+                      e.target.style.borderColor = '#d1d5db';
+                    }
+                  }}
                   placeholder="Confirm your new password"
                   required
                 />
@@ -475,7 +523,7 @@ export default function ResetPasswordPage() {
                 style={{
                   width: '100%',
                   padding: '0.875rem 1rem',
-                  backgroundColor: loading || !isPasswordValid(password) ? '#9ca3af' : '#3b82f6',
+                  backgroundColor: loading || !isPasswordValid(password) ? '#9ca3af' : '#d3b65d',
                   color: 'white',
                   border: 'none',
                   borderRadius: '0.5rem',
@@ -487,6 +535,16 @@ export default function ResetPasswordPage() {
                   justifyContent: 'center',
                   gap: '0.5rem',
                   transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading && isPasswordValid(password)) {
+                    e.currentTarget.style.backgroundColor = '#b8a04a';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading && isPasswordValid(password)) {
+                    e.currentTarget.style.backgroundColor = '#d3b65d';
+                  }
                 }}
               >
                 {loading && (
@@ -532,6 +590,23 @@ export default function ResetPasswordPage() {
               }}>
                 This reset link has expired or is invalid. Please request a new password reset from your app.
               </p>
+              <button
+                onClick={() => router.push('/login')}
+                style={{
+                  padding: '0.875rem 2rem',
+                  backgroundColor: '#d3b65d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b8a04a'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#d3b65d'}
+              >
+                Return to Login
+              </button>
             </div>
           )}
         </div>
