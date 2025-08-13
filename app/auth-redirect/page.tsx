@@ -29,104 +29,80 @@ export default function AuthRedirect() {
   useEffect(() => {
     const handleRedirect = async () => {
       try {
-        // Get URL parameters and hash parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        setStatus('Exchanging code for session...');
         
-        // Get tokens from URL hash
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-        const error = hashParams.get('error');
-        const errorDescription = hashParams.get('error_description');
-        const expiresIn = hashParams.get('expires_in');
-        const tokenType = hashParams.get('token_type');
+        // Use PKCE flow - exchange code for session
+        const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.href);
         
-        console.log('Auth redirect - tokens found:', {
-          hasAccessToken: !!accessToken,
-          hasRefreshToken: !!refreshToken,
-          error: error,
-          url: window.location.href
-        });
-        
-        // Get the original mobile redirect URL
-        const originalRedirect = urlParams.get('original_redirect');
-        
-        // Detect platform
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isMobile = /iphone|ipad|android|mobile/i.test(userAgent);
-        const isInAppBrowser = /expo|react-native/i.test(userAgent);
-        
-        console.log('Platform detection:', {
-          isMobile,
-          isInAppBrowser,
-          originalRedirect,
-          userAgent: userAgent.substring(0, 100)
-        });
-        
-        // Determine if this should redirect to mobile app
-        const shouldRedirectToMobile = originalRedirect && (
-          originalRedirect.startsWith('exp://') || 
-          originalRedirect.startsWith('your-prayer-app://')
-        );
-        
-        if (shouldRedirectToMobile) {
-          setStatus('Redirecting back to mobile app...');
-          
-          let mobileUrl = originalRedirect;
-          
-          // Append tokens or error to mobile redirect URL
-          if (accessToken) {
-            const separator = mobileUrl.includes('#') ? '&' : '#';
-            const tokenParams = new URLSearchParams();
-            tokenParams.set('access_token', accessToken);
-            if (refreshToken) tokenParams.set('refresh_token', refreshToken);
-            if (expiresIn) tokenParams.set('expires_in', expiresIn);
-            if (tokenType) tokenParams.set('token_type', tokenType);
-            
-            mobileUrl += separator + tokenParams.toString();
-          } else if (error) {
-            const separator = mobileUrl.includes('#') ? '&' : '#';
-            const errorParams = new URLSearchParams();
-            errorParams.set('error', error);
-            if (errorDescription) errorParams.set('error_description', errorDescription);
-            
-            mobileUrl += separator + errorParams.toString();
-          }
-          
-          console.log('Redirecting to mobile app:', mobileUrl);
-          
-          // Try to redirect to mobile app
-          window.location.href = mobileUrl;
-          
-          // Show fallback message after a delay
+        if (error) {
+          console.error('PKCE exchange error:', error);
+          setStatus('Authentication failed. Redirecting to login...');
           setTimeout(() => {
-            setStatus('Please return to your mobile app. If it didn\'t open automatically, please return manually.');
-          }, 3000);
+            router.replace('/login?error=oauth');
+          }, 2000);
+          return;
+        }
+        
+        if (data.session) {
+          console.log('PKCE auth successful:', data.session.user);
+          setStatus('Authentication successful! Redirecting...');
           
-        } else {
-          // Handle web app redirect
-          setStatus('Completing web authentication...');
+          // Get the original mobile redirect URL
+          const urlParams = new URLSearchParams(window.location.search);
+          const originalRedirect = urlParams.get('original_redirect');
           
-          if (accessToken) {
-            // Authentication successful for web user
-            console.log('Web auth successful, redirecting to dashboard');
-            router.push('/dashboard');
-          } else if (error) {
-            // Handle authentication error for web user
-            console.error('Web auth error:', error, errorDescription);
-            router.push(`/login?error=${encodeURIComponent(errorDescription || error)}`);
+          // Detect platform
+          const userAgent = navigator.userAgent.toLowerCase();
+          const isMobile = /iphone|ipad|android|mobile/i.test(userAgent);
+          const isInAppBrowser = /expo|react-native/i.test(userAgent);
+          
+          console.log('Platform detection:', {
+            isMobile,
+            isInAppBrowser,
+            originalRedirect,
+            userAgent: userAgent.substring(0, 100)
+          });
+          
+          // Determine if this should redirect to mobile app
+          const shouldRedirectToMobile = originalRedirect && (
+            originalRedirect.startsWith('exp://') || 
+            originalRedirect.startsWith('your-prayer-app://')
+          );
+          
+          if (shouldRedirectToMobile) {
+            setStatus('Redirecting back to mobile app...');
+            
+            // For PKCE, we don't need to pass tokens in URL since session is stored
+            // Just redirect to mobile app with success indicator
+            const mobileUrl = `${originalRedirect}?auth_success=true`;
+            
+            console.log('Redirecting to mobile app:', mobileUrl);
+            window.location.href = mobileUrl;
+            
+            setTimeout(() => {
+              setStatus('Please return to your mobile app. If it didn\'t open automatically, please return manually.');
+            }, 3000);
+            
           } else {
-            // No tokens found, redirect to login
-            console.log('No tokens found, redirecting to login');
-            router.push('/login');
+            // Handle web app redirect
+            setStatus('Redirecting to dashboard...');
+            setTimeout(() => {
+              router.replace('/dashboard');
+            }, 1000);
           }
+        } else {
+          console.log('No session found, redirecting to login');
+          setStatus('No session found. Redirecting to login...');
+          setTimeout(() => {
+            router.replace('/login');
+          }, 2000);
         }
         
       } catch (error) {
-        console.error('Error in auth redirect:', error);
+        console.error('Error in PKCE auth redirect:', error);
         setStatus('Authentication error occurred. Redirecting to login...');
         setTimeout(() => {
-          router.push('/login');
+          router.replace('/login?error=oauth');
         }, 2000);
       }
     };
