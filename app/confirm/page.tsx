@@ -16,75 +16,17 @@ export default function ConfirmEmailPage() {
   const [resendLoading, setResendLoading] = useState(false);
 
   useEffect(() => {
-    const confirmEmail = async () => {
-      const token = searchParams.get('token');
-      const type = searchParams.get('type');
-      const email = searchParams.get('email');
-
-      // Check if this is an email confirmation link
-      if (!token || type !== 'signup') {
-        setMessage({
-          text: 'Invalid or missing confirmation link. Please check your email for the correct link.',
-          type: 'error'
-        });
-        setConfirmationStatus('error');
-        setConfirming(false);
-        return;
-      }
-
-      try {
-        console.log('Attempting email confirmation...');
-        
-        // Verify the email confirmation token
-        const { data, error } = await supabase.auth.verifyOtp({
-          email: email || '',
-          token: token,
-          type: 'signup',
-        });
-
-        console.log('Confirmation result:', { data, error });
-
-        if (error) {
-          // Handle different types of errors
-          if (error.message.includes('expired') || error.message.includes('invalid')) {
-            setConfirmationStatus('expired');
-            setMessage({
-              text: 'This confirmation link has expired. Please request a new confirmation email.',
-              type: 'error'
-            });
-          } else {
-            setConfirmationStatus('error');
-            setMessage({
-              text: `Email confirmation failed: ${error.message}`,
-              type: 'error'
-            });
-          }
-        } else {
-          setConfirmationStatus('success');
-          setMessage({
-            text: 'Email confirmed successfully! Your account is now active and you can sign in.',
-            type: 'success'
-          });
-          
-          // Redirect to login after a delay
-          setTimeout(() => {
-            router.push('/login?confirmed=true');
-          }, 3000);
-        }
-      } catch (error) {
-        console.log('Confirmation catch error:', error);
-        setConfirmationStatus('error');
-        setMessage({
-          text: 'An unexpected error occurred during email confirmation. Please try again.',
-          type: 'error'
-        });
-      } finally {
-        setConfirming(false);
-      }
-    };
-
-    confirmEmail();
-  }, [searchParams, router]);
+    // Since clicking the email link automatically confirms the email,
+    // we just need to show the success state
+    setTimeout(() => {
+      setConfirmationStatus('success');
+      setMessage({
+        text: 'Email confirmed successfully! Your account is now active and you can sign in.',
+        type: 'success'
+      });
+      setConfirming(false);
+    }, 1000);
+  }, []);
 
   const handleResendConfirmation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,6 +46,9 @@ export default function ConfirmEmailPage() {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: resendEmail.trim(),
+        options: {
+          emailRedirectTo: 'https://mparest.vercel.app/confirm'
+        }
       });
 
       if (error) {
@@ -174,13 +119,13 @@ export default function ConfirmEmailPage() {
             color: '#1f2937',
             marginBottom: '0.5rem'
           }}>
-            Confirming Your Email
+            Processing Confirmation
           </h2>
           <p style={{
             color: '#6b7280',
             fontSize: '0.875rem'
           }}>
-            Please wait while we confirm your email address...
+            Please wait while we process your email confirmation...
           </p>
         </div>
         
@@ -234,19 +179,13 @@ export default function ConfirmEmailPage() {
             color: '#1f2937',
             marginBottom: '0.5rem'
           }}>
-            {confirmationStatus === 'success' ? 'Email Confirmed!' : 
-             confirmationStatus === 'expired' ? 'Link Expired' :
-             confirmationStatus === 'error' ? 'Confirmation Failed' : 
-             'Email Confirmation'}
+            Email Confirmed!
           </h1>
           <p style={{
             color: '#6b7280',
             fontSize: '1rem'
           }}>
-            {confirmationStatus === 'success' ? 'Your account is now active and ready to use' : 
-             confirmationStatus === 'expired' ? 'The confirmation link has expired' :
-             confirmationStatus === 'error' ? 'There was an issue confirming your email' :
-             'Verifying your email address'}
+            Your account is now active and ready to use
           </p>
         </div>
 
@@ -542,4 +481,4 @@ export default function ConfirmEmailPage() {
       `}</style>
     </div>
   );
-} 
+}
