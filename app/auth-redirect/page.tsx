@@ -2,11 +2,29 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function AuthRedirect() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState('Processing authentication...');
+
+  // Helper function for Google OAuth sign-in with hardcoded redirect
+  const signInWithGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'https://mparest.vercel.app/auth-redirect'
+      }
+    });
+  };
+
+  // Helper function for password reset with hardcoded redirect
+  const resetPassword = async (email: string) => {
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://mparest.vercel.app/auth-redirect'
+    });
+  };
 
   useEffect(() => {
     const handleRedirect = async () => {

@@ -16,17 +16,69 @@ export default function ConfirmEmailPage() {
   const [resendLoading, setResendLoading] = useState(false);
 
   useEffect(() => {
-    // Since clicking the email link automatically confirms the email,
-    // we just need to show the success state
-    setTimeout(() => {
-      setConfirmationStatus('success');
-      setMessage({
-        text: 'Email confirmed successfully! Your account is now active and you can sign in.',
-        type: 'success'
-      });
+    const handleEmailConfirmation = async () => {
+      // Get URL parameters that Supabase sends
+      const token_hash = searchParams.get('token_hash');
+      const type = searchParams.get('type');
+      const next = searchParams.get('next') ?? '/dashboard'; // Default redirect
+
+      // If we have the required parameters, verify the session
+      if (token_hash && type) {
+        try {
+          // Supabase automatically handles the token verification when the user clicks the email link
+          // We just need to check if the user is now authenticated
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error('Session error:', error);
+            setConfirmationStatus('error');
+            setMessage({
+              text: 'Failed to confirm email. The link may be expired or invalid.',
+              type: 'error'
+            });
+          } else if (session) {
+            setConfirmationStatus('success');
+            setMessage({
+              text: 'Email confirmed successfully! Your account is now active.',
+              type: 'success'
+            });
+            
+            // Redirect after a short delay
+            setTimeout(() => {
+              router.push('/login?confirmed=true');
+            }, 2000);
+          } else {
+            // No session means the confirmation may have failed
+            setConfirmationStatus('error');
+            setMessage({
+              text: 'Unable to confirm email. Please try requesting a new confirmation link.',
+              type: 'error'
+            });
+          }
+        } catch (error) {
+          console.error('Confirmation error:', error);
+          setConfirmationStatus('error');
+          setMessage({
+            text: 'An error occurred during confirmation. Please try again.',
+            type: 'error'
+          });
+        }
+      } else {
+        // No confirmation parameters in URL
+        setConfirmationStatus('error');
+        setMessage({
+          text: 'Invalid confirmation link. Please check your email for the correct link.',
+          type: 'error'
+        });
+      }
+      
       setConfirming(false);
-    }, 1000);
-  }, []);
+    };
+
+    // Add a small delay to show the processing state
+    const timer = setTimeout(handleEmailConfirmation, 1000);
+    return () => clearTimeout(timer);
+  }, [searchParams, router]);
 
   const handleResendConfirmation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,19 +165,31 @@ export default function ConfirmEmailPage() {
               }} 
             />
           </div>
+          
+          {/* Loading spinner */}
+          <div style={{
+            width: '2rem',
+            height: '2rem',
+            border: '3px solid #e5e7eb',
+            borderTop: '3px solid #d3b65d',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 1rem'
+          }} />
+          
           <h2 style={{
             fontSize: '1.5rem',
             fontWeight: '600',
             color: '#1f2937',
             marginBottom: '0.5rem'
           }}>
-            Processing Confirmation
+            Confirming Your Email
           </h2>
           <p style={{
             color: '#6b7280',
             fontSize: '0.875rem'
           }}>
-            Please wait while we process your email confirmation...
+            Please wait while we verify your email confirmation...
           </p>
         </div>
         
@@ -179,13 +243,15 @@ export default function ConfirmEmailPage() {
             color: '#1f2937',
             marginBottom: '0.5rem'
           }}>
-            Email Confirmed!
+            {confirmationStatus === 'success' ? 'Email Confirmed!' : 'Email Confirmation'}
           </h1>
           <p style={{
             color: '#6b7280',
             fontSize: '1rem'
           }}>
-            Your account is now active and ready to use
+            {confirmationStatus === 'success' 
+              ? 'Your account is now active and ready to use'
+              : 'Let\'s get your account verified'}
           </p>
         </div>
 
@@ -263,7 +329,7 @@ export default function ConfirmEmailPage() {
                 marginBottom: '2rem',
                 lineHeight: '1.5'
               }}>
-                Your email has been successfully verified. You'll be redirected to the login page in a few seconds, or you can click the button below to continue.
+                Your email has been successfully verified. You'll be redirected to the login page shortly, or you can click the button below to continue now.
               </p>
 
               <button
@@ -322,7 +388,7 @@ export default function ConfirmEmailPage() {
               }}>
                 {confirmationStatus === 'expired' 
                   ? 'This confirmation link has expired. Please request a new one.'
-                  : 'We couldn\'t confirm your email. Please try requesting a new confirmation email.'}
+                  : 'We couldn\'t confirm your email. The link may be invalid or expired.'}
               </p>
 
               {!showResendForm ? (
