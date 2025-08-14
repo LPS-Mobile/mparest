@@ -71,8 +71,15 @@ export default function AuthRedirect() {
           // Handle redirect immediately since we're already authenticated
           if (originalRedirect && originalRedirect.startsWith('exp://')) {
             setStatus('Redirecting back to mobile app...');
-            const mobileUrl = `${originalRedirect}?auth_success=true`;
-            console.log('📲 Redirecting to mobile app (already authenticated):', mobileUrl);
+            
+            // Get the session tokens to pass to mobile app
+            const session = currentSession.session;
+            const accessToken = session?.access_token;
+            const refreshToken = session?.refresh_token;
+            
+            // Create mobile URL with session tokens
+            const mobileUrl = `${originalRedirect}?auth_success=true&access_token=${encodeURIComponent(accessToken || '')}&refresh_token=${encodeURIComponent(refreshToken || '')}`;
+            console.log('📲 Redirecting to mobile app (already authenticated) with tokens');
             
             try {
               window.location.href = mobileUrl;
