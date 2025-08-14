@@ -19,6 +19,7 @@ interface DebugInfo {
   originalRedirect?: string | null;
   decodedRedirect?: string | null;
   allParams?: Record<string, string>;
+  alreadyAuthenticated?: boolean;
 }
 
 export default function AuthRedirect() {
@@ -47,6 +48,50 @@ export default function AuthRedirect() {
         console.log('🔍 Current session before PKCE:', !!currentSession.session);
         
         setDebugInfo((prev: DebugInfo | null) => ({ ...prev, hasCurrentSession: !!currentSession.session }));
+
+        // Check if we already have a session and no OAuth code in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasOAuthCode = urlParams.has('code') || window.location.hash.includes('access_token');
+        
+        if (currentSession.session && !hasOAuthCode) {
+          console.log('✅ Already signed in, no need for PKCE exchange');
+          setStatus('Already authenticated! Redirecting...');
+          
+          // Get the original mobile redirect URL
+          const originalRedirect = urlParams.get('original_redirect');
+          
+          setDebugInfo((prev: DebugInfo | null) => ({ 
+            ...prev, 
+            originalRedirect: originalRedirect || undefined,
+            decodedRedirect: originalRedirect ? decodeURIComponent(originalRedirect) : undefined,
+            allParams: Object.fromEntries(urlParams.entries()),
+            alreadyAuthenticated: true
+          }));
+          
+          // Handle redirect immediately since we're already authenticated
+          if (originalRedirect && originalRedirect.startsWith('exp://')) {
+            setStatus('Redirecting back to mobile app...');
+            const mobileUrl = `${originalRedirect}?auth_success=true`;
+            console.log('📲 Redirecting to mobile app (already authenticated):', mobileUrl);
+            
+            try {
+              window.location.href = mobileUrl;
+              setTimeout(() => {
+                window.location.replace(mobileUrl);
+              }, 500);
+            } catch (error) {
+              console.error('Redirect error:', error);
+              setStatus('Please return to your mobile app manually.');
+            }
+          } else {
+            // Web redirect
+            setStatus('Redirecting to dashboard...');
+            setTimeout(() => {
+              router.replace('/success');
+            }, 1000);
+          }
+          return;
+        }
 
         setStatus('Exchanging code for session...');
         
