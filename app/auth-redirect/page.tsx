@@ -69,7 +69,8 @@ export default function AuthRedirect() {
           }));
           
           // Handle redirect immediately since we're already authenticated
-          if (originalRedirect && originalRedirect.startsWith('exp://')) {
+          // ✅ FIXED: Check for both exp:// (Expo Go) and custom schemes (TestFlight)
+          if (originalRedirect && (originalRedirect.startsWith('exp://') || originalRedirect.startsWith('myprayerai://'))) {
             setStatus('Redirecting back to mobile app...');
             
             // Get the session tokens to pass to mobile app
@@ -158,26 +159,37 @@ export default function AuthRedirect() {
             userAgent: userAgent.substring(0, 100)
           });
           
-          // Check if this should redirect to mobile app
-          // For Expo Go, always redirect if we have an originalRedirect that starts with exp://
-          const shouldRedirectToMobile = originalRedirect && originalRedirect.startsWith('exp://');
+          // ✅ FIXED: Check for both Expo Go and TestFlight custom schemes
+          const shouldRedirectToMobile = originalRedirect && (
+            originalRedirect.startsWith('exp://') ||      // Expo Go
+            originalRedirect.startsWith('myprayerai://')   // TestFlight custom scheme
+          );
           
           console.log('🚀 Should redirect to mobile?', {
             shouldRedirectToMobile,
             originalRedirect,
             startsWithExp: originalRedirect?.startsWith('exp://'),
+            startsWithCustom: originalRedirect?.startsWith('myprayerai://'),
           });
           
           if (shouldRedirectToMobile) {
             setStatus('Redirecting back to mobile app...');
             
-            // Create the mobile redirect URL with success indicator
-            const mobileUrl = `${originalRedirect}?auth_success=true`;
+            // ✅ FIXED: Include tokens in the redirect URL for mobile app
+            const session = data.session;
+            const accessToken = session?.access_token;
+            const refreshToken = session?.refresh_token;
             
-            console.log('📲 Redirecting to mobile app:', mobileUrl);
-            console.log('📲 Decoded mobile URL:', decodeURIComponent(mobileUrl));
+            // Create the mobile redirect URL with tokens
+            const mobileUrl = `${originalRedirect}?auth_success=true&access_token=${encodeURIComponent(accessToken || '')}&refresh_token=${encodeURIComponent(refreshToken || '')}`;
             
-            // For Expo Go, we need to be more aggressive with the redirect
+            console.log('📲 Redirecting to mobile app with tokens:', {
+              url: mobileUrl.substring(0, 100) + '...',
+              hasAccessToken: !!accessToken,
+              hasRefreshToken: !!refreshToken
+            });
+            
+            // For mobile apps, we need to be more aggressive with the redirect
             try {
               // Method 1: Try immediate redirect
               console.log('📲 Attempting window.location.href redirect...');
@@ -197,7 +209,7 @@ export default function AuthRedirect() {
               
               // Method 4: Create a clickable link as final fallback
               setTimeout(() => {
-                setStatus(`If the app didn't open automatically, click here: ${mobileUrl}`);
+                setStatus(`If the app didn't open automatically, click the button below.`);
               }, 3000);
               
             } catch (redirectError) {
@@ -210,7 +222,7 @@ export default function AuthRedirect() {
             console.log('🌐 Redirecting to web dashboard...');
             setStatus('Redirecting to dashboard...');
             setTimeout(() => {
-              router.replace('/success'); // Changed to match your login component
+              router.replace('/success');
             }, 1000);
           }
         } else {
@@ -258,8 +270,11 @@ export default function AuthRedirect() {
           <p>Please wait while we redirect you back to the app.</p>
           <p className="mt-2">If you're using a mobile app and it doesn't open automatically, please return to the app manually.</p>
           
-          {/* Add manual redirect button for testing */}
-          {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('original_redirect')?.startsWith('exp://') && (
+          {/* ✅ FIXED: Manual redirect button for both Expo Go and TestFlight */}
+          {typeof window !== 'undefined' && (() => {
+            const originalRedirect = new URLSearchParams(window.location.search).get('original_redirect');
+            return originalRedirect && (originalRedirect.startsWith('exp://') || originalRedirect.startsWith('myprayerai://'));
+          })() && (
             <button 
               onClick={() => {
                 const originalRedirect = new URLSearchParams(window.location.search).get('original_redirect');
@@ -271,7 +286,7 @@ export default function AuthRedirect() {
               }}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
-              Open in Expo Go (Manual)
+              Open MyPrayer AI (Manual)
             </button>
           )}
         </div>
